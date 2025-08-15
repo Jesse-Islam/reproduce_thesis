@@ -133,3 +133,5 @@ dmypy.json
 __pycache__/
 *.pdf
 .ipnyb_checkpoints/
+
+*parameters.pkl

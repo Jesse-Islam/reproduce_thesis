@@ -136,7 +136,7 @@ __pycache__/
 
 *parameters.pkl
 
-
+.zip
 *.db
 *.csv
 *.png

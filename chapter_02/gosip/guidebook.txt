@@ -1,0 +1,5 @@
+Need to install
+scanpy
+setup-tools
+rpy2
+scdesign3py #may change later

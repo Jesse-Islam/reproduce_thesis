@@ -1,0 +1,1 @@
+{"batch_size": 2048, "learning_rate": 0.0001223966603665777, "layer_nodes_generator": [789, 834, 1179], "layer_nodes_discriminator": [1471, 1388, 1408], "critics": 3, "dropout_rate": 0.13851990089136454}

@@ -1,0 +1,7 @@
+name: pt2
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - graph-tool
+prefix: /home/jislam/miniconda3/envs/pt2

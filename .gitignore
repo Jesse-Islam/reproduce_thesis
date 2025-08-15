@@ -131,3 +131,5 @@ dmypy.json
 /data
 
 __pycache__/
+*.pdf
+.ipnyb_checkpoints/

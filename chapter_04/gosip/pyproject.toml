@@ -1,0 +1,85 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+[project]
+name = "gosip"
+dynamic = ["version"]
+description = ''
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Jesse Islam", email = "jesse.islam@mail.mcgill.ca" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = ['wheel',
+'optuna',
+'pandas',
+'umap-learn',
+'matplotlib',
+'scikit-learn',
+'statsmodels',
+'scipy',
+'scanpy',
+'PyPDF2',
+'ipywidgets',
+'torch',
+'adjustText',
+'geomloss',
+'networkit'
+]
+
+
+[tool.hatch.envs.hatch-test]
+template = "default"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[project.urls]
+Documentation = "https://github.com/Jesse Islam/gosip#readme"
+Issues = "https://github.com/Jesse Islam/gosip/issues"
+Source = "https://github.com/Jesse Islam/gosip"
+
+[tool.hatch.version]
+path = "src/gosip/__about__.py"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/gosip tests}"
+
+[tool.coverage.run]
+source_pkgs = ["gosip", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/gosip/__about__.py",
+]
+
+[tool.coverage.paths]
+gosip = ["src/gosip", "*/gosip/src/gosip"]
+tests = ["tests", "*/gosip/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
+
+
+

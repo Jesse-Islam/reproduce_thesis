@@ -1,0 +1,1 @@
+{"batch_size": 1024, "learning_rate": 0.000745139047193172, "layer_nodes_generator": [881, 260, 779], "dropout_rate_g": 0.013585020849545533, "latent_dim": 7, "beta": 1.0}

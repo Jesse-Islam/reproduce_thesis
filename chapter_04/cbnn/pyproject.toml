@@ -1,0 +1,68 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cbnn"
+dynamic = ["version"]
+description = ''
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Jesse Islam", email = "jesse.islam@mail.mcgill.ca" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = ['wheel',
+'optuna',
+'pandas',
+'scikit-learn',
+'scipy',
+'torch','captum',
+'scikit-survival',
+'ipywidgets']
+
+[project.urls]
+Documentation = "https://github.com/Jesse Islam/cbnn#readme"
+Issues = "https://github.com/Jesse Islam/cbnn/issues"
+Source = "https://github.com/Jesse Islam/cbnn"
+
+[tool.hatch.version]
+path = "src/cbnn/__about__.py"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/cbnn tests}"
+
+[tool.coverage.run]
+source_pkgs = ["cbnn", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/cbnn/__about__.py",
+]
+
+[tool.coverage.paths]
+cbnn = ["src/cbnn", "*/cbnn/src/cbnn"]
+tests = ["tests", "*/cbnn/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]

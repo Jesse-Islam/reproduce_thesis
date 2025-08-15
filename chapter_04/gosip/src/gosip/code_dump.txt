@@ -1,0 +1,552 @@
+#from graph_tool.all import Graph , graph_draw,pagerank,betweenness
+'''
+def set_values_between_percentiles_to_zero(matrix, percentile=90):
+    m = matrix.copy()
+    """
+    Sets all values between the 5th and 95th percentiles to zero in a numpy matrix.
+    Parameters:
+    - matrix: A 2D numpy array.
+    Returns:
+    - A 2D numpy array with modified values.
+    """
+    # Calculate the 5th and 95th percentiles
+    pl = np.percentile(m, 100 - percentile)
+    pr = np.percentile(m, percentile)
+
+    # Set values between the 5th and 95th percentiles to zero
+    m = np.where((m > pl) & (m < pr), 0, m)
+    np.fill_diagonal(m, 0)
+    return m
+'''
+'''
+def set_values_between_percentiles_to_zero(matrix, percentile=90):
+    """
+    Parameters:
+    - matrix: A 2D numpy array with values ranging from negative to positive infinity.
+    - percentile: The percentile threshold to apply (default: 90).
+    
+    Returns:
+    - A 2D numpy array with modified values.
+    """
+    m = matrix.copy()
+    # Step 1: Get the smallest and largest non-infinite values
+    non_inf_values = m[~np.isinf(m)]
+    
+    if non_inf_values.size > 0:  # Check if there are any non-infinite values
+        min_value = non_inf_values.min()
+        max_value = non_inf_values.max()
+        
+        # Step 2: Calculate the clipping bounds
+        lower_bound = 2 * min_value
+        upper_bound = 2 * max_value
+        
+        # Step 3: Clip the array using the calculated bounds
+        clipped_m = np.clip(m, a_min=lower_bound, a_max=upper_bound)
+    else:
+        # Handle the case where all values are infinite
+        clipped_m = m  # or replace with zeros, NaNs, etc.
+
+    m=clipped_m
+    # Separate positive and negative values
+    positive_values = m[m > 0]
+    negative_values = m[m < 0]
+    
+    # Calculate the percentile thresholds
+    if len(positive_values) > 0:
+        positive_threshold = np.percentile(positive_values, percentile)
+    else:
+        positive_threshold = 0  # Default, in case there are no positive values
+
+    if len(negative_values) > 0:
+        negative_threshold = np.percentile(negative_values, 100 - percentile)
+    else:
+        negative_threshold = 0  # Default, in case there are no negative values
+
+    m = np.where(((m > negative_threshold) & (m < positive_threshold)), 0, m)
+    # Optionally: Set diagonal elements to 1
+    np.fill_diagonal(m, 0)
+    
+    return m
+'''
+
+
+
+
+
+
+
+'''
+def adjacency_matrix_to_edge_list(adj_matrix, labels=None):
+    """
+    Convert a weighted adjacency matrix to a list of weighted directed edges with optional vertex labels.
+    Parameters:
+    adj_matrix (np.array): A 2D numpy array where adj_matrix[i, j] represents the weight of the edge from vertex i to vertex j.
+    labels (list): Optional list of labels corresponding to the vertices.
+    Returns:
+    list of tuples: Each tuple is (i, j, w) where i is the source vertex, j is the target vertex, and w is the weight of the edge.
+    If labels are provided, i and j are replaced with the corresponding labels.
+    """
+    # Ensure the adjacency matrix is a numpy array
+    adj_matrix = np.array(adj_matrix)
+
+    # Find indices of non-zero elements
+    source, target = np.nonzero(adj_matrix)
+
+    # Get corresponding weights
+    weights = adj_matrix[source, target]
+
+    # Check if labels are provided and apply them
+    if labels is not None:
+        source = [labels[i] for i in source]
+        target = [labels[j] for j in target]
+
+    # Combine source, target, and weights into a list of tuples
+    return list(zip(source, target, weights))
+
+
+def calculate_separate_centrality_dataframe_graph_tool(edge_list, perturbation_effect, perturbations_change):
+    pos_edge_list = []
+    neg_edge_list = []
+    
+    # Separate positive and negative edges
+    for edge in edge_list:
+        if edge[2] >= 0:
+            pos_edge_list.append((edge[0], edge[1], np.abs(edge[2])))
+        else:
+            neg_edge_list.append((edge[0], edge[1], np.abs(edge[2])))
+    
+    # Create separate directed graphs for positive and negative edges
+
+    g_pos = Graph(pos_edge_list, hashed=True,directed=True,
+          eprops=[('weight', 'double')])
+
+    g_neg = Graph(neg_edge_list, hashed=True,directed=True,
+          eprops=[('weight', 'double')])
+    # Function to check for null graphs
+    def is_null_graph(graph):
+        return graph.number_of_nodes() == 0 or graph.number_of_edges() == 0
+    
+    # Function to calculate centrality measures
+    def calculate_centrality_measures(G, substring):
+        if is_null_graph(G):
+            df = pd.DataFrame({
+                f"in_degree_centrality{substring}": [np.nan],
+                f"out_degree_centrality{substring}": [np.nan],
+                f"in_degree_pagerank{substring}": [np.nan],
+                f"out_degree_pagerank{substring}": [np.nan],
+                f"betweenness_centrality{substring}": [np.nan]
+            })
+            df.index = [f'null_graph{substring}']
+            return df
+        
+        # Calculate centralities
+        in_degree_centrality = dict(G.in_degree(weight='weight'))
+        out_degree_centrality = dict(G.out_degree(weight='weight'))
+
+        betweenness_centrality =betweenness(g,weight=g.ep.weight)[0].get_array()
+        in_pagerank=pagerank(G,weight=G.ep.weight).get_array()
+        G.set_reversed(True)
+        out_pagerank=pagerank(G,weight=G.ep.weight)
+
+        # Create DataFrame
+        df = pd.DataFrame({
+            f"in_degree_centrality{substring}": in_degree_centrality,
+            f"out_degree_centrality{substring}": out_degree_centrality,
+            f"in_degree_pagerank{substring}": in_pagerank,
+            f"out_degree_pagerank{substring}": out_pagerank,
+            f"betweenness_centrality{substring}": betweenness_centrality
+        })
+        df.index = G.nodes()  # Align index with graph nodes
+        return df
+    
+    # Calculate centralities
+    positive_centralities = calculate_centrality_measures(g_pos, '_positive')
+    negative_centralities = calculate_centrality_measures(g_neg, '_negative')
+    
+    # Handle null graph cases
+    if 'null_graph_positive' in positive_centralities.index:
+        if 'null_graph_negative' not in negative_centralities.index:
+            centralities = negative_centralities
+    elif 'null_graph_negative' in negative_centralities.index:
+        if 'null_graph_positive' not in positive_centralities.index:
+            centralities = positive_centralities
+    else:
+        # Merge centralities
+        centralities = pd.merge(positive_centralities, negative_centralities, 
+                                how='outer', left_index=True, right_index=True)
+        
+        # Handle zeros
+        if (centralities > 0).any().any():
+            centralities[centralities == 0] = centralities[centralities > 0].min().min() / 2
+        else:
+            centralities[centralities == 0] = 1e-9
+
+    # Add additional data
+    centralities['oracle_score'] = perturbation_effect
+    centralities['Difference_goal_minus_start'] = perturbations_change
+    centralities['label'] = centralities.index
+    return centralities
+
+
+
+
+
+def calculate_separate_centrality_dataframe_networkx(edge_list, perturbation_effect, perturbations_change):
+    pos_edge_list = []
+    neg_edge_list = []
+    
+    # Separate positive and negative edges
+    for edge in edge_list:
+        if edge[2] >= 0:
+            pos_edge_list.append((edge[0], edge[1], np.abs(edge[2])))
+        else:
+            neg_edge_list.append((edge[0], edge[1], np.abs(edge[2])))
+    
+    # Create separate directed graphs for positive and negative edges
+    g_pos = nx.DiGraph()
+    g_pos.add_weighted_edges_from(pos_edge_list)
+    
+    g_neg = nx.DiGraph()
+    g_neg.add_weighted_edges_from(neg_edge_list)
+    
+    # Function to check for null graphs
+    def is_null_graph(graph):
+        return graph.number_of_nodes() == 0 or graph.number_of_edges() == 0
+    
+    # Function to calculate centrality measures
+    def calculate_centrality_measures(G, substring):
+        if is_null_graph(G):
+            df = pd.DataFrame({
+                f"in_degree_centrality{substring}": [np.nan],
+                f"out_degree_centrality{substring}": [np.nan],
+                f"in_degree_pagerank{substring}": [np.nan],
+                f"out_degree_pagerank{substring}": [np.nan],
+                f"betweenness_centrality{substring}": [np.nan]
+            })
+            df.index = [f'null_graph{substring}']
+            return df
+        
+        # Calculate centralities
+        in_degree_centrality = dict(G.in_degree(weight='weight'))
+        out_degree_centrality = dict(G.out_degree(weight='weight'))
+        #in_pagerank = nx.eigenvector_centrality_numpy(G, weight='weight')
+        #out_pagerank = nx.eigenvector_centrality_numpy(G.reverse(copy=True), weight='weight')
+        # Compute "in-centrality" equivalent using PageRank
+        in_pagerank = nx.pagerank(G, weight='weight')        
+        # Compute "out-centrality" equivalent using PageRank on the reversed graph
+        out_pagerank = nx.pagerank(G.reverse(copy=True), weight='weight')
+        betweenness_centrality = nx.betweenness_centrality(G,weight='weight')
+        #out_pagerank,in_pagerank=nx.hits(G)
+        
+        # Create DataFrame
+        df = pd.DataFrame({
+            f"in_degree_centrality{substring}": in_degree_centrality,
+            f"out_degree_centrality{substring}": out_degree_centrality,
+            f"in_degree_pagerank{substring}": in_pagerank,
+            f"out_degree_pagerank{substring}": out_pagerank,
+            f"betweenness_centrality{substring}": betweenness_centrality
+        })
+        df.index = G.nodes()  # Align index with graph nodes
+        return df
+    
+    # Calculate centralities
+    positive_centralities = calculate_centrality_measures(g_pos, '_positive')
+    negative_centralities = calculate_centrality_measures(g_neg, '_negative')
+    
+    # Handle null graph cases
+    if 'null_graph_positive' in positive_centralities.index:
+        if 'null_graph_negative' not in negative_centralities.index:
+            centralities = negative_centralities
+    elif 'null_graph_negative' in negative_centralities.index:
+        if 'null_graph_positive' not in positive_centralities.index:
+            centralities = positive_centralities
+    else:
+        # Merge centralities
+        centralities = pd.merge(positive_centralities, negative_centralities, 
+                                how='outer', left_index=True, right_index=True)
+        
+        # Handle zeros
+        if (centralities > 0).any().any():
+            centralities[centralities == 0] = centralities[centralities > 0].min().min() / 2
+        else:
+            centralities[centralities == 0] = 1e-9
+
+    # Add additional data
+    centralities['oracle_score'] = perturbation_effect
+    centralities['Difference_goal_minus_start'] = perturbations_change
+    centralities['label'] = centralities.index
+    return centralities
+'''
+
+'''
+def benjamini_hochberg(p_values):
+    """ Apply Benjamini-Hochberg correction to p-values """
+    # Flatten the p-values matrix and get indices for sorting
+    p_values_flat = p_values.flatten()
+    sorted_indices = np.argsort(p_values_flat)
+    
+    # Calculate adjusted p-values
+    m = len(p_values_flat)
+    adjusted_p_values = np.empty(m)
+    
+    for i, index in enumerate(sorted_indices):
+        # Calculate adjusted p-value for each p-value
+        adjusted_p_values[index] = min(p_values_flat[index] * m / (i + 1), 1.0)
+    
+    # Reshape the adjusted p-values back to the original matrix shape
+    adjusted_p_values_matrix = adjusted_p_values.reshape(p_values.shape)
+    
+    return adjusted_p_values_matrix
+    
+def filter_average_gene_impact(average_gene_impact, p_values, threshold):
+    """ Filter average_gene_impact based on Benjamini-Hochberg adjusted p-values and threshold """
+    # Apply Benjamini-Hochberg adjustment
+    adjusted_p_values = benjamini_hochberg(p_values)
+    
+    # Create a mask for average_gene_impact where adjusted p-values are below the threshold
+    mask = adjusted_p_values < threshold
+    
+    # Filter average_gene_impact
+    filtered_average_gene_impact = np.where(mask, average_gene_impact, 0)  # Set average_gene_impact to NaN where p-value is not significant
+    
+    return filtered_average_gene_impact
+'''
+
+
+'''
+def calculate_valid_ratio(original_distances, perturbed_distances):
+    # Get non-zero elements
+    non_zero_distances = perturbed_distances[perturbed_distances > 0]
+    
+    # Check if non_zero_distances is empty
+    if non_zero_distances.numel() == 0:
+        # Set a default minimum value if all elements are zero (e.g., 1.0 or any appropriate value)
+        min_threshold = 1.0  # Or choose another default value as needed
+    else:
+        # Find the minimum non-zero distance and set the threshold to half of it
+        min_non_zero_distance = non_zero_distances.min()
+        min_threshold = min_non_zero_distance / 2
+    
+    # Replace zero distances in perturbed_distances with min_threshold
+    adjusted_perturbed_distances = torch.where(perturbed_distances == 0, min_threshold, perturbed_distances)
+    
+    # Calculate closeness
+    valid_ratio = (original_distances / adjusted_perturbed_distances)-1
+    return valid_ratio
+'''
+
+
+'''
+def calculate_valid_ratio(tensor1, tensor2, epsilon=1e-12):
+    # Check if tensor1 and tensor2 are torch tensors or numpy arrays
+    if isinstance(tensor1, torch.Tensor) and isinstance(tensor2, torch.Tensor):
+        # Handling PyTorch tensors
+        #tensor2_safe = torch.where(tensor2 == 0, torch.finfo(tensor2.dtype).tiny, tensor2)
+        #tensor1_safe = torch.where(tensor1 == 0, torch.finfo(tensor1.dtype).tiny, tensor1)
+        return (tensor1 - tensor2)/(tensor1+tensor2)
+        #return (tensor1_safe - tensor2_safe)/(tensor1_safe+tensor2_safe)
+        #return (tensor1_safe / tensor2_safe) - 1
+    
+    elif isinstance(tensor1, np.ndarray) and isinstance(tensor2, np.ndarray):
+        # Handling NumPy arrays
+        tensor2_safe = np.where(tensor2 == 0, np.finfo(tensor2.dtype).tiny, tensor2)
+        tensor1_safe = np.where(tensor1 == 0, np.finfo(tensor1.dtype).tiny, tensor1)
+        return (tensor1_safe - tensor2_safe)/(tensor1_safe+tensor2_safe)
+        #return (tensor1_safe / tensor2_safe) - 1
+    
+    else:
+        raise TypeError("Both inputs must be either PyTorch tensors or NumPy arrays.")
+'''
+
+
+
+
+
+
+
+
+'''
+def pca_transform_torch(input_tensor, pca_components, pca_mean):
+    """
+    Apply PCA transformation to a PyTorch tensor using the learned PCA components and mean.
+    
+    Args:
+        input_tensor (torch.Tensor): The input data (samples x features).
+        pca_components (torch.Tensor): The principal components (n_components x n_features).
+        pca_mean (torch.Tensor): The mean of the training data (1 x n_features).
+        
+    Returns:
+        torch.Tensor: The transformed data.
+    """
+    # Center the data by subtracting the mean
+    centered_data = input_tensor - pca_mean
+    
+    # Perform the transformation (matrix multiplication with principal components)
+    transformed_data = torch.mm(centered_data, pca_components.t())  # Components are transposed for correct multiplication
+    
+    return transformed_data
+
+class AnnDatasetPC(Dataset):
+    def __init__(self, data_tensor, labels_tensor, weights_tensor, global_weights,pcs):
+        self.data = data_tensor
+        self.labels = labels_tensor
+        self.weights = weights_tensor
+        self.global_weights = global_weights
+        self.pcs=pcs
+        # self.classes = classes
+
+    def __len__(self):
+        return self.data.shape[0]
+
+    def __getitem__(self, idx):
+        return self.data[idx], self.labels[idx], self.weights[idx], self.global_weights[idx], self.pcs[idx]
+
+
+def prepare_data_with_pc(adata,pc, num_categories, batch_size=16):
+    # adata is anndata format,assumes uncompressed
+    labels_tensor = torch.tensor(adata.one_hot_labels.values.copy(), dtype=torch.float32)
+    data_tensor = torch.tensor(adata.X.copy(), dtype=torch.float32)
+    pc_tensor = torch.tensor(pc.copy(), dtype=torch.float32)
+    weight_tensors = torch.tensor(
+        calculate_inverse_frequency_weights(labels_tensor, num_categories).detach(), dtype=torch.float32
+    )
+    global_weights = torch.tensor(
+        calculate_global_inverse_frequency_weights(labels_tensor).detach(), dtype=torch.float32
+    )
+    dataset = AnnDatasetPC(data_tensor, labels_tensor, weight_tensors, global_weights,pc)
+    # print(weight_tensors)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+'''
+
+
+
+
+
+
+'''
+class PropagatorModel(nn.Module):
+    def __init__(self, input_dim,layers=None,dropout=0.1):
+        super().__init__()
+        if layers is None:
+            error_message= "expects list of 3 ints"
+            raise ValueError(error_message)
+        self.network = nn.Sequential(
+            nn.Linear(input_dim, layers[0]),
+            nn.LeakyReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(layers[0], layers[1]),
+            nn.LeakyReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(layers[1], layers[2]),
+            nn.LeakyReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(layers[2], input_dim)
+        )
+
+    def forward(self, x):
+        return self.network(x)
+
+
+
+
+
+
+class Propagator:
+    def __init__(self, input_dim, num_domains, device,learning_rate=0.0001, layer_g=None,drpt_g=0.2):
+        if layer_g is None:
+            error_message= "expects list of 3 ints"
+            raise ValueError(error_message)
+        self.device = device
+        self.input_dim=input_dim
+        self.num_domains=num_domains
+        self.G = PropagatorModel(input_dim,layers=layer_g,dropout=drpt_g).to(device)
+        self.g_optimizer = optim.AdamW(self.G.parameters(), lr=learning_rate) #can add weight decay for restricting weights
+        self.l1_loss = WeightedL1Loss()#1,1,10,5 is good, but forms some self clusters in activated fibroblast
+        self.lambda_iden= 1
+
+    def reset_grad(self):
+        """Reset the gradient buffers.""" #FROM STARGAN
+        self.g_optimizer.zero_grad()
+    def train(self, dataloader,val_loader, num_epochs, patience=3, burn_in=0,*,optuna_run=False,trial=None,verbose=False):
+        # Setup for early stopping
+        self.before_burn=True
+        best_loss = float('inf')
+        if not optuna_run:
+            best_g_model_wts = self.G.state_dict().copy()
+        epochs_without_improvement = 0
+        start_time=time.time()
+        for epoch in range(num_epochs):
+            self.G.train()
+            epoch_loss = 0
+            i=0
+            for data, labels,weights,global_weights in dataloader:
+                start_data = data.to(self.device)
+                #start_labels = labels.to(self.device)
+                weights= weights.to(self.device)
+                global_start_weights=global_weights.to(self.device)
+                transition_data_generated = self.G(start_data)
+                loss_identity_s= self.l1_loss(transition_data_generated, start_data,global_start_weights)
+                g_loss = loss_identity_s *self.lambda_iden
+                self.reset_grad()
+                g_loss.backward()
+                self.g_optimizer.step()
+                epoch_loss = epoch_loss+ g_loss.item()
+                #if i==int(len(dataloader)/10):
+                #    break
+                i=i+1
+            # Average loss for the epoch
+            epoch_loss = (epoch_loss)/(len(dataloader)*data.shape[0])
+            # Validation phase
+            val_loss = 0
+            self.reset_grad()
+            with torch.no_grad():
+                self.G.eval()
+                i=0
+                for data, labels,weights,global_weights in val_loader:
+                    start_data = data.to(self.device)
+                    #start_labels = labels.to(self.device)
+                    #weights= weights/weights.shape[0]
+                    weights= weights.to(self.device)
+                    global_start_weights=global_weights.to(self.device)
+                    transition_data_generated = self.G(start_data)
+                    loss_identity_s= self.l1_loss(transition_data_generated, start_data,global_start_weights)
+                    g_loss = loss_identity_s *self.lambda_iden
+                    val_loss = val_loss+ g_loss.item()
+            val_loss=val_loss/(len(val_loader)*data.shape[0])
+
+            # Early stopping condition and burn-in time
+            if optuna_run:
+                trial.report(val_loss, epoch)
+                # Handle pruning based on the intermediate value.
+                if trial.should_prune():
+                    raise optuna.TrialPruned()
+            elif epoch >= burn_in:
+                if self.before_burn:
+                    best_loss = val_loss
+                    best_g_model_wts = self.G.state_dict().copy()
+                    self.before_burn=False
+                if val_loss < best_loss:
+                    best_loss = val_loss
+                    epochs_without_improvement = 0
+                    if not optuna_run:
+                        best_g_model_wts = self.G.state_dict().copy()
+                else:
+                    epochs_without_improvement += 1
+
+                if epochs_without_improvement >= patience:
+                    print(f"Stopping early at epoch {epoch}")
+                    clear_output(wait=True)
+                    self.G.load_state_dict(best_g_model_wts)
+                    return val_loss
+            if verbose and (epoch+1) %1==0:
+                clear_output(wait=True)
+                print(f'Epoch [{epoch+1}/{num_epochs}], Training Loss: {epoch_loss:.4f}, Validation Loss: {val_loss:.4f},  Seconds per epoch: {((time.time()-start_time)/(epoch+1)):.2f}, Without improvement: {epochs_without_improvement}')
+        clear_output(wait=True)
+        if not optuna_run:
+            self.G.load_state_dict(best_g_model_wts)
+        return val_loss
+'''
+
+
+

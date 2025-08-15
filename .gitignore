@@ -128,7 +128,7 @@ dmypy.json
 !.gitattributes
 !.github/
 
-/data
+*data/
 
 __pycache__/
 *.pdf
@@ -136,7 +136,8 @@ __pycache__/
 
 *parameters.pkl
 
-.zip
+
+*.zip
 *.db
 *.csv
 *.png
